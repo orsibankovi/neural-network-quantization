@@ -1,6 +1,4 @@
 import os
-import torch
-import cv2
 from torchvision import transforms
 from torch.utils.data import Dataset
 from PIL import Image
@@ -16,7 +14,7 @@ preprocess = transforms.Compose([
 class GetDataset(Dataset):
     def __init__(self):
         super(GetDataset, self).__init__()
-        self.path_input = "./imageset"
+        self.path_input = "C:/Users/orsolya.bankovi/Documents/Uni/deepLearning_project/imagenet"
         self.input = os.listdir(self.path_input)
         self.input_names = list(filter(lambda x: x.endswith(".png"), list(self.input)))
         self.sorted_input = natsorted(self.input_names)
@@ -27,7 +25,7 @@ class GetDataset(Dataset):
             self.input_images.append(input_tensor)
             
         self.labels = []
-        with open("./imageset/labels.txt", 'r') as f:
+        with open("C:/Users/orsolya.bankovi/Documents/Uni/deepLearning_project/imagenet/labels.txt", 'r') as f:
             for i in range(1000):
                 line = f.readline()
                 self.labels.append(int(line))

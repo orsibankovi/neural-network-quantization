@@ -1,78 +1,66 @@
-import model_load
 import torch
 import transformers
+import torchvision
 import quant_int8
+import qat
 import imagenet_preprocess as preprocess
 import object_detection_test
 import coco_preprocess
-import test
+import imagenet_test
+import ptq
+import warnings
+warnings.filterwarnings("ignore")
+
+def evaluate_model(model, name, testset, dev, batch_size):
+    test = imagenet_test.ImageNetTest(batch_size)
+    print(name, 'FP32')
+    dev = torch.device("cpu")
+    model = model.to(dev)
+    fp32 = test.test(model, testset, dev)
+    model_int8 = quant_int8.quantize_model(model, testset, dev)
+    print(name, 'INT8')
+    int8 =  test.test(model_int8, testset, dev)
+    ptq_ = ptq.PTQ(model, testset, dev)
+    bias_corr = ptq_.quantize_model()
+    print(name, 'PTQ INT8')
+    ptq_int8 = test.test(bias_corr, testset, dev)
+    
+    return fp32, int8, ptq_int8
 
 if __name__ == "__main__":
-    #image classification (IMAGENET-1K)
+    #image classification (IMAGENET)
     dev = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    dev = torch.device("cpu")
-    '''
-    efficientnet = torch.hub.load('NVIDIA/DeepLearningExamples:torchhub', 'nvidia_efficientnet_b0', pretrained=True)
-    efficientnet.eval()
+    print(dev)
     
     testset = preprocess.GetDataset()
+    with open('./imagenet_classes.txt', 'w') as f:
     
-    print('fp32')
-    test_fp32 = test.Test(dev, 1, testset, efficientnet)
-    #test_fp32.run()
-    
-    efficientnet_int8 = quant_int8.quantize_model(efficientnet)
-    efficientnet_int8.eval()
-    print('int8')
-    test_int8 = test.Test(dev, 1, testset, efficientnet_int8)
-    test_int8.run()
-    
-    for name, param in efficientnet.named_parameters():
-        print(name)
+        alexnet = torch.hub.load('pytorch/vision:v0.10.0', 'alexnet', pretrained=True)
+        fp32, int8, ptq_int8 = evaluate_model(alexnet, 'AlexNet', testset, dev, 1)
+        f.write('AlexNet FP32: ' + str(fp32) + '\n')
+        f.write('AlexNet INT8: ' + str(int8) + '\n')
+        f.write('AlexNet PTQ INT8: ' + str(ptq_int8) + '\n')
         
-    for name, param in efficientnet_int8.named_parameters():
-        print(name)
-    '''
-    #segformer = transformers.SegformerForImageClassification.from_pretrained("nvidia/mit-b0")
-    
-    #object detection
-    yolov5s = torch.hub.load('ultralytics/yolov5', 'yolov5s', pretrained=True)
-    yolov5s.eval()
+        efficientnet = torch.hub.load('NVIDIA/DeepLearningExamples:torchhub', 'nvidia_efficientnet_b0', pretrained=True)
+        fp32, int8, ptq_int8 = evaluate_model(efficientnet, 'EfficientNet', testset, dev, 1)
+        f.write('EfficientNet FP32: ' + str(fp32) + '\n')
+        f.write('EfficientNet INT8: ' + str(int8) + '\n')
+        f.write('EfficientNet PTQ INT8: ' + str(ptq_int8) + '\n')
         
-    # COCO adathalmaz betöltése
-    dataDir = 'C:/Users/orsolya.bankovi/Documents/uni/deepL/deepLearning_project/main/COCO'  # Útvonal a COCO adathalmazhoz
-  # Útvonal a COCO adathalmazhoz
-    dataType = 'val2017'  # Vagy 'train2017' vagy 'test2017' attól függően, hogy melyik adathalmazt szeretné használni
+        mobilenet_v2 = torchvision.models.mobilenet_v2(pretrained=True)
+        fp32, int8, ptq_int8 = evaluate_model(mobilenet_v2, 'MobileNetV2', testset, dev, 1)
+        f.write('MobileNetV2 FP32: ' + str(fp32) + '\n')
+        f.write('MobileNetV2 INT8: ' + str(int8) + '\n')
+        f.write('MobileNetV2 PTQ INT8: ' + str(ptq_int8) + '\n')
+        
+        shufflenet = torch.hub.load('pytorch/vision:v0.10.0', 'shufflenet_v2_x1_0', pretrained=True)
+        fp32, int8, ptq_int8 = evaluate_model(shufflenet, 'ShuffleNet', testset, dev, 1)
+        f.write('ShuffleNet FP32: ' + str(fp32) + '\n')
+        f.write('ShuffleNet INT8: ' + str(int8) + '\n')
+        f.write('ShuffleNet PTQ INT8: ' + str(ptq_int8) + '\n')
 
-    # Inicializáljuk a COCO adathalmazat
-    coco_dataset = coco_preprocess.GetCOCODataset(dataDir, dataType)
-    '''
-    # Hívjuk meg a teszt osztályt a fent inicializált paraméterekkel
-    tester = object_detection_test.ObjectDetectionTest(dev=dev, batch_size=1, testset=coco_dataset, net=yolov5s)
-    tester.run()
-    
-    
-
-    onnx_yolov5m = torch.onnx.export(quant_yolov5m, dummy_input, 'yolov5m.onnx')
-    for name, param in quant_yolov5m.named_parameters():
-        print(name, param.data)
-        
-    for name, param in yolov5m.named_parameters():
-        print(name, param.data)
-        
-    yolos_tiny =  transformers.YolosForObjectDetection.from_pretrained('hustvl/yolos-tiny')
-    yolos_tiny.eval()
-    
-    for name, param in yolos_tiny.named_parameters():
-        print(name, param.data)
-        
-    for name, param in yolos_tiny.named_parameters():
-        print(name, param.data)
-    '''
-    
-    yolos_tiny =  transformers.YolosForObjectDetection.from_pretrained('hustvl/yolos-tiny')
-    yolos_tiny.eval()
-    
-    tester1 = object_detection_test.ObjectDetectionTest(dev=dev, batch_size=1, testset=coco_dataset, net=yolos_tiny)
-    tester1.run()
-    
+        maxvit_t = torch.hub.load('pytorch/vision', 'maxvit_t', pretrained=True)
+        fp32, int8, ptq_int8 = evaluate_model(maxvit_t, 'MaxViT', testset, dev, 1)
+        f.write('MaxViT FP32: ' + str(fp32) + '\n')
+        f.write('MaxViT INT8: ' + str(int8) + '\n')
+        f.write('MaxViT PTQ INT8: ' + str(ptq_int8) + '\n')
